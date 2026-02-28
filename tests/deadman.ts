@@ -11,6 +11,7 @@ import {
 } from "@solana/spl-token";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const DEFAULT_PUBKEY = new anchor.web3.PublicKey("11111111111111111111111111111111");
 
 describe("deadman", () => {
   const provider = anchor.AnchorProvider.env();
@@ -20,12 +21,23 @@ describe("deadman", () => {
 
   const owner = anchor.web3.Keypair.generate();
   const beneficiary = anchor.web3.Keypair.generate();
+  const ownerTwo = anchor.web3.Keypair.generate();
+  const beneficiaryTwo = anchor.web3.Keypair.generate();
+  const outsider = anchor.web3.Keypair.generate();
   
   let mint: anchor.web3.PublicKey;
   let ownerAta: anchor.web3.PublicKey;
   let beneficiaryAta: anchor.web3.PublicKey;
   let vaultStatePda: anchor.web3.PublicKey;
   let vaultTokenAccountPda: anchor.web3.PublicKey;
+  let mintTwo: anchor.web3.PublicKey;
+  let wrongMintTwo: anchor.web3.PublicKey;
+  let ownerTwoAta: anchor.web3.PublicKey;
+  let ownerTwoWrongMintAta: anchor.web3.PublicKey;
+  let beneficiaryTwoAta: anchor.web3.PublicKey;
+  let outsiderAta: anchor.web3.PublicKey;
+  let vaultStatePdaTwo: anchor.web3.PublicKey;
+  let vaultTokenAccountPdaTwo: anchor.web3.PublicKey;
 
   const INTERVAL = new anchor.BN(2);
   const GRACE_PERIOD = new anchor.BN(1);
@@ -348,5 +360,294 @@ describe("deadman", () => {
     console.log(`\n     [WITHDRAW] Dead Man's Switch Triggered`);
     console.log(`    Beneficiary ATA: ${beneficiaryTokenBalance.amount.toString()} TOKENS (+5000 claimed)`);
     console.log(`    Vault PDA:       Memory Swept & Closed`);
+  });
+
+  it("Sets up secondary actors and token accounts for constraint tests", async () => {
+    const airdropOwnerTwo = await provider.connection.requestAirdrop(
+      ownerTwo.publicKey,
+      10 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    const airdropBeneficiaryTwo = await provider.connection.requestAirdrop(
+      beneficiaryTwo.publicKey,
+      2 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    const airdropOutsider = await provider.connection.requestAirdrop(
+      outsider.publicKey,
+      2 * anchor.web3.LAMPORTS_PER_SOL
+    );
+
+    const latestBlockHash = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature: airdropOwnerTwo,
+    });
+    await provider.connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature: airdropBeneficiaryTwo,
+    });
+    await provider.connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature: airdropOutsider,
+    });
+
+    mintTwo = await createMint(
+      provider.connection,
+      ownerTwo,
+      ownerTwo.publicKey,
+      null,
+      6
+    );
+    wrongMintTwo = await createMint(
+      provider.connection,
+      ownerTwo,
+      ownerTwo.publicKey,
+      null,
+      6
+    );
+
+    ownerTwoAta = await createAssociatedTokenAccount(
+      provider.connection,
+      ownerTwo,
+      mintTwo,
+      ownerTwo.publicKey
+    );
+    ownerTwoWrongMintAta = await createAssociatedTokenAccount(
+      provider.connection,
+      ownerTwo,
+      wrongMintTwo,
+      ownerTwo.publicKey
+    );
+    beneficiaryTwoAta = await createAssociatedTokenAccount(
+      provider.connection,
+      beneficiaryTwo,
+      mintTwo,
+      beneficiaryTwo.publicKey
+    );
+    outsiderAta = await createAssociatedTokenAccount(
+      provider.connection,
+      outsider,
+      mintTwo,
+      outsider.publicKey
+    );
+
+    [vaultStatePdaTwo] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), ownerTwo.publicKey.toBuffer(), mintTwo.toBuffer()],
+      program.programId
+    );
+    [vaultTokenAccountPdaTwo] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("token_vault"), ownerTwo.publicKey.toBuffer(), mintTwo.toBuffer()],
+      program.programId
+    );
+
+    await mintTo(provider.connection, ownerTwo, mintTwo, ownerTwoAta, ownerTwo, 10_000);
+    await mintTo(
+      provider.connection,
+      ownerTwo,
+      wrongMintTwo,
+      ownerTwoWrongMintAta,
+      ownerTwo,
+      10_000
+    );
+  });
+
+  it("Rejects initialize when interval is zero", async () => {
+    try {
+      await program.methods
+        .initialize(new anchor.BN(0), new anchor.BN(1), new anchor.BN(1000))
+        .accounts({
+          owner: ownerTwo.publicKey,
+          beneficiary: beneficiaryTwo.publicKey,
+          mint: mintTwo,
+          ownerTokenAccount: ownerTwoAta,
+          vaultTokenAccount: vaultTokenAccountPdaTwo,
+          vaultState: vaultStatePdaTwo,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        } as any)
+        .signers([ownerTwo])
+        .rpc();
+      assert.fail("initialize with zero interval should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "InvalidInterval");
+    }
+  });
+
+  it("Rejects initialize when grace period is zero", async () => {
+    try {
+      await program.methods
+        .initialize(new anchor.BN(1), new anchor.BN(0), new anchor.BN(1000))
+        .accounts({
+          owner: ownerTwo.publicKey,
+          beneficiary: beneficiaryTwo.publicKey,
+          mint: mintTwo,
+          ownerTokenAccount: ownerTwoAta,
+          vaultTokenAccount: vaultTokenAccountPdaTwo,
+          vaultState: vaultStatePdaTwo,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        } as any)
+        .signers([ownerTwo])
+        .rpc();
+      assert.fail("initialize with zero grace period should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "InvalidGracePeriod");
+    }
+  });
+
+  it("Rejects initialize when beneficiary is default pubkey", async () => {
+    try {
+      await program.methods
+        .initialize(new anchor.BN(1), new anchor.BN(1), new anchor.BN(1000))
+        .accounts({
+          owner: ownerTwo.publicKey,
+          beneficiary: DEFAULT_PUBKEY,
+          mint: mintTwo,
+          ownerTokenAccount: ownerTwoAta,
+          vaultTokenAccount: vaultTokenAccountPdaTwo,
+          vaultState: vaultStatePdaTwo,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        } as any)
+        .signers([ownerTwo])
+        .rpc();
+      assert.fail("initialize with default beneficiary should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "InvalidBeneficiary");
+    }
+  });
+
+  it("Initializes secondary vault for constraint checks", async () => {
+    await program.methods
+      .initialize(new anchor.BN(2), new anchor.BN(1), new anchor.BN(3000))
+      .accounts({
+        owner: ownerTwo.publicKey,
+        beneficiary: beneficiaryTwo.publicKey,
+        mint: mintTwo,
+        ownerTokenAccount: ownerTwoAta,
+        vaultTokenAccount: vaultTokenAccountPdaTwo,
+        vaultState: vaultStatePdaTwo,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      } as any)
+      .signers([ownerTwo])
+      .rpc();
+
+    const vaultAccount = await program.account.vaultState.fetch(vaultStatePdaTwo);
+    assert.ok(vaultAccount.owner.equals(ownerTwo.publicKey));
+  });
+
+  it("Rejects updateInterval when new interval is zero", async () => {
+    try {
+      await program.methods
+        .updateInterval(new anchor.BN(0))
+        .accounts({
+          owner: ownerTwo.publicKey,
+          vaultState: vaultStatePdaTwo,
+        } as any)
+        .signers([ownerTwo])
+        .rpc();
+      assert.fail("updateInterval with zero should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "InvalidInterval");
+    }
+  });
+
+  it("Rejects updateBeneficiary when new beneficiary is default pubkey", async () => {
+    try {
+      await program.methods
+        .updateBeneficiary(DEFAULT_PUBKEY)
+        .accounts({
+          owner: ownerTwo.publicKey,
+          vaultState: vaultStatePdaTwo,
+        } as any)
+        .signers([ownerTwo])
+        .rpc();
+      assert.fail("updateBeneficiary with default pubkey should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "InvalidBeneficiary");
+    }
+  });
+
+  it("Rejects deposit when owner token account mint does not match vault mint", async () => {
+    try {
+      await program.methods
+        .deposit(new anchor.BN(100))
+        .accounts({
+          owner: ownerTwo.publicKey,
+          vaultState: vaultStatePdaTwo,
+          ownerTokenAccount: ownerTwoWrongMintAta,
+          vaultTokenAccount: vaultTokenAccountPdaTwo,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        } as any)
+        .signers([ownerTwo])
+        .rpc();
+      assert.fail("deposit with wrong mint token account should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "ConstraintRaw");
+    }
+  });
+
+  it("Rejects ownerWithdraw when destination token account mint does not match vault mint", async () => {
+    try {
+      await program.methods
+        .ownerWithdraw(new anchor.BN(100))
+        .accounts({
+          owner: ownerTwo.publicKey,
+          vaultState: vaultStatePdaTwo,
+          vaultTokenAccount: vaultTokenAccountPdaTwo,
+          ownerTokenAccount: ownerTwoWrongMintAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        } as any)
+        .signers([ownerTwo])
+        .rpc();
+      assert.fail("ownerWithdraw with wrong mint token account should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "ConstraintRaw");
+    }
+  });
+
+  it("Rejects withdraw when beneficiary token account is not owned by beneficiary signer", async () => {
+    try {
+      await program.methods
+        .withdraw()
+        .accounts({
+          beneficiary: beneficiaryTwo.publicKey,
+          vaultState: vaultStatePdaTwo,
+          vaultTokenAccount: vaultTokenAccountPdaTwo,
+          beneficiaryTokenAccount: outsiderAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        } as any)
+        .signers([beneficiaryTwo])
+        .rpc();
+      assert.fail("withdraw with outsider token account should fail");
+    } catch (err) {
+      assert.include((err as Error).message, "ConstraintRaw");
+    }
+  });
+
+  it("Cancels secondary vault and recovers remaining tokens", async () => {
+    await program.methods
+      .cancelVault()
+      .accounts({
+        owner: ownerTwo.publicKey,
+        vaultState: vaultStatePdaTwo,
+        vaultTokenAccount: vaultTokenAccountPdaTwo,
+        ownerTokenAccount: ownerTwoAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      } as any)
+      .signers([ownerTwo])
+      .rpc();
+
+    const vaultStateInfo = await provider.connection.getAccountInfo(vaultStatePdaTwo);
+    assert.isNull(vaultStateInfo);
+    const vaultTokenAccountInfo = await provider.connection.getAccountInfo(vaultTokenAccountPdaTwo);
+    assert.isNull(vaultTokenAccountInfo);
   });
 });

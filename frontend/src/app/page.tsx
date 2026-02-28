@@ -35,7 +35,7 @@ export default function Home() {
           <div className="border-box">
             <h2>CONNECT WALLET</h2>
             <p className="mt-4">
-              Please connect your Solana wallet to access the Deadman Switch dashboard.
+              Please connect your Solana wallet (Devnet Wallet) to access the Deadman Switch dashboard.
             </p>
             <p className="mt-4 text-sm text-gray-500">
               &gt; AWAITING WALLET CONNECTION...
@@ -60,7 +60,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t-2 border-white mt-16 p-6 text-center text-sm text-gray-500">
-        <p>© 2024 DEADMAN SWITCH | DECENTRALIZED INHERITANCE PROTOCOL</p>
+        <p> DEADMAN SWITCH | DECENTRALIZED INHERITANCE PROTOCOL</p>
       </footer>
     </div>
   );
