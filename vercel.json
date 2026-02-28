@@ -2,7 +2,7 @@
   "version": 2,
   "framework": "nextjs",
   "installCommand": "yarn install",
-  "buildCommand": " yarn build",
-  "outputDirectory": "frontend/.next",
+  "buildCommand": "yarn build",
+  "outputDirectory": ".next",
   "devCommand": "yarn dev"
 }
