@@ -182,12 +182,6 @@ Check:
 - `NEXT_PUBLIC_SOLANA_RPC_URL` points to devnet
 - `NEXT_PUBLIC_DEADMAN_PROGRAM_ID` matches deployed program
 
-### AccountNotInitialized Errors
-
-Confirm frontend/test PDA derivation includes mint:
-
-- `vault`: `[b"vault", owner, mint]`
-- `token_vault`: `[b"token_vault", owner, mint]`
 
 ## Notes
 
