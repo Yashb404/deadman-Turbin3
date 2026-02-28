@@ -147,6 +147,113 @@ describe("deadman", () => {
     console.log(`    New Interval:    ${vaultAfter.interval.toNumber()} seconds`);
   });
 
+  it("Updates the beneficiary to a new wallet", async () => {
+    const newBeneficiary = anchor.web3.Keypair.generate();
+    const vaultBefore = await program.account.vaultState.fetch(vaultStatePda);
+    
+    await program.methods
+      .updateBeneficiary(newBeneficiary.publicKey)
+      .accounts({
+        owner: owner.publicKey,
+        vaultState: vaultStatePda,
+      } as any)
+      .signers([owner])
+      .rpc();
+
+    const vaultAfter = await program.account.vaultState.fetch(vaultStatePda);
+    assert.ok(vaultAfter.beneficiary.equals(newBeneficiary.publicKey));
+    assert.ok(!vaultAfter.beneficiary.equals(vaultBefore.beneficiary));
+    
+    console.log(`\n     [UPDATE] Beneficiary Changed`);
+    console.log(`    Old Beneficiary: ${vaultBefore.beneficiary.toBase58().slice(0, 8)}...`);
+    console.log(`    New Beneficiary: ${vaultAfter.beneficiary.toBase58().slice(0, 8)}...`);
+    
+    // Change it back for future tests
+    await program.methods
+      .updateBeneficiary(beneficiary.publicKey)
+      .accounts({
+        owner: owner.publicKey,
+        vaultState: vaultStatePda,
+      } as any)
+      .signers([owner])
+      .rpc();
+  });
+
+  it("Deposits additional tokens into the vault (top-up)", async () => {
+    const depositAmount = new anchor.BN(2000);
+    
+    const vaultTokenBalanceBefore = await getAccount(provider.connection, vaultTokenAccountPda);
+    const ownerTokenBalanceBefore = await getAccount(provider.connection, ownerAta);
+    
+    await program.methods
+      .deposit(depositAmount)
+      .accounts({
+        owner: owner.publicKey,
+        vaultState: vaultStatePda,
+        ownerTokenAccount: ownerAta,
+        vaultTokenAccount: vaultTokenAccountPda,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      } as any)
+      .signers([owner])
+      .rpc();
+
+    const vaultTokenBalanceAfter = await getAccount(provider.connection, vaultTokenAccountPda);
+    const ownerTokenBalanceAfter = await getAccount(provider.connection, ownerAta);
+    
+    assert.strictEqual(
+      vaultTokenBalanceAfter.amount.toString(),
+      (Number(vaultTokenBalanceBefore.amount) + depositAmount.toNumber()).toString()
+    );
+    assert.strictEqual(
+      ownerTokenBalanceAfter.amount.toString(),
+      (Number(ownerTokenBalanceBefore.amount) - depositAmount.toNumber()).toString()
+    );
+    
+    console.log(`\n     [DEPOSIT] Top-Up Successful`);
+    console.log(`    Owner ATA:       ${ownerTokenBalanceAfter.amount.toString()} TOKENS (-${depositAmount.toNumber()})`);
+    console.log(`    Vault PDA ATA:   ${vaultTokenBalanceAfter.amount.toString()} TOKENS (+${depositAmount.toNumber()})`);
+  });
+
+  it("Allows owner to make a partial withdrawal from the vault", async () => {
+    const withdrawAmount = new anchor.BN(1500);
+    
+    const vaultTokenBalanceBefore = await getAccount(provider.connection, vaultTokenAccountPda);
+    const ownerTokenBalanceBefore = await getAccount(provider.connection, ownerAta);
+    
+    await program.methods
+      .ownerWithdraw(withdrawAmount)
+      .accounts({
+        owner: owner.publicKey,
+        vaultState: vaultStatePda,
+        vaultTokenAccount: vaultTokenAccountPda,
+        ownerTokenAccount: ownerAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      } as any)
+      .signers([owner])
+      .rpc();
+
+    const vaultTokenBalanceAfter = await getAccount(provider.connection, vaultTokenAccountPda);
+    const ownerTokenBalanceAfter = await getAccount(provider.connection, ownerAta);
+    
+    // Verify the vault still exists and has reduced balance
+    const vaultState = await program.account.vaultState.fetch(vaultStatePda);
+    assert.ok(vaultState.owner.equals(owner.publicKey));
+    
+    assert.strictEqual(
+      vaultTokenBalanceAfter.amount.toString(),
+      (Number(vaultTokenBalanceBefore.amount) - withdrawAmount.toNumber()).toString()
+    );
+    assert.strictEqual(
+      ownerTokenBalanceAfter.amount.toString(),
+      (Number(ownerTokenBalanceBefore.amount) + withdrawAmount.toNumber()).toString()
+    );
+    
+    console.log(`\n     [OWNER_WITHDRAW] Partial Withdrawal Successful`);
+    console.log(`    Owner ATA:       ${ownerTokenBalanceAfter.amount.toString()} TOKENS (+${withdrawAmount.toNumber()})`);
+    console.log(`    Vault PDA ATA:   ${vaultTokenBalanceAfter.amount.toString()} TOKENS (-${withdrawAmount.toNumber()})`);
+    console.log(`    Vault Status:    Still Active & Operational`);
+  });
+
   it("Cancels the vault and returns SPL tokens to the owner", async () => {
     await program.methods
       .cancelVault()
