@@ -20,7 +20,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
       <header className="border-b-2 border-white p-6">
         <div className="container flex justify-between items-center">
           <div>
@@ -31,7 +30,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container py-8">
         {!connected || !publicKey ? (
           <div className="border-box">
@@ -61,7 +59,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t-2 border-white mt-16 p-6 text-center text-sm text-gray-500">
         <p>© 2024 DEADMAN SWITCH | DECENTRALIZED INHERITANCE PROTOCOL</p>
       </footer>

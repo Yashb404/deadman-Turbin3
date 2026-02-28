@@ -1,5 +1,4 @@
-// Import this from your anchor program's generated IDL
-// For now, this is a type stub
+// Static IDL snapshot for the frontend client. Regenerate when the program changes.
 export const IDL = {
   "version": "0.1.0",
   "name": "deadman",

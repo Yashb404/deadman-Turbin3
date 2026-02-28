@@ -42,7 +42,7 @@ export const useVaultData = (owner: PublicKey | null) => {
     
     try {
       const program = getProgramFn();
-      // Vaults are keyed by owner + mint, so query by owner and show the first result.
+      // Owners can have multiple vaults (one per mint). The dashboard currently shows the first.
       const ownerVaults = await program.account.vaultState.all([
         { memcmp: { offset: 8, bytes: owner.toBase58() } },
       ]);

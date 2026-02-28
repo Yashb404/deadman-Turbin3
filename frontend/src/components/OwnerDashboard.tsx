@@ -33,12 +33,10 @@ export default function OwnerDashboard({ ownerPublicKey }: OwnerDashboardProps) 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Fetch vault only once on mount, no annoying polling
   useEffect(() => {
     fetchVault();
   }, [fetchVault]);
 
-  // Scans the wallet for tokens when the user opens the form
   const scanWalletForTokens = async () => {
     setFetchingTokens(true);
     try {
@@ -53,7 +51,7 @@ export default function OwnerDashboard({ ownerPublicKey }: OwnerDashboardProps) 
           mint: accountData.mint,
           balance: accountData.tokenAmount.uiAmount,
         };
-      }).filter(t => t.balance > 0); // Only show tokens they actually own
+      }).filter(t => t.balance > 0);
       
       setUserTokens(tokens);
       if (tokens.length > 0) {
@@ -91,7 +89,7 @@ export default function OwnerDashboard({ ownerPublicKey }: OwnerDashboardProps) 
       const mintPubkey = new PublicKey(formData.mint);
       const beneficiaryPubkey = new PublicKey(formData.beneficiary);
       
-     
+      // UI amount conversion currently assumes 6 decimals.
       const depositAmountRaw = Math.floor(Number(formData.depositAmount) * 1_000_000); 
       const interval = Math.floor(Number(formData.interval) || 86400); 
       const gracePeriod = Math.floor(Number(formData.gracePeriod) || 3600); 
@@ -142,8 +140,6 @@ export default function OwnerDashboard({ ownerPublicKey }: OwnerDashboardProps) 
 
           {showForm && (
             <form onSubmit={handleInitializeVault} className="mt-6 border-t-2 border-white pt-6">
-              
-              {/* NEW AUTO-FETCH TOKEN UX */}
               <div>
                 <label>ASSET TO LOCK *</label>
                 {fetchingTokens ? (

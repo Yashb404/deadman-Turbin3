@@ -23,15 +23,13 @@ interface VaultManagementProps {
 export default function VaultManagement({ vault, ownerPublicKey, onRefresh }: VaultManagementProps) {
   const getProgramFn = useAnchorProgram();
   const { sendTransaction, loading: txLoading, error: txError } = useTransaction();
-  
-  // States for various forms
+
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [newInterval, setNewInterval] = useState('');
   const [newBeneficiary, setNewBeneficiary] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
-  // Countdown timer state
+
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {

@@ -168,7 +168,6 @@ describe("deadman", () => {
     console.log(`    Old Beneficiary: ${vaultBefore.beneficiary.toBase58().slice(0, 8)}...`);
     console.log(`    New Beneficiary: ${vaultAfter.beneficiary.toBase58().slice(0, 8)}...`);
     
-    // Change it back for future tests
     await program.methods
       .updateBeneficiary(beneficiary.publicKey)
       .accounts({
@@ -235,7 +234,6 @@ describe("deadman", () => {
     const vaultTokenBalanceAfter = await getAccount(provider.connection, vaultTokenAccountPda);
     const ownerTokenBalanceAfter = await getAccount(provider.connection, ownerAta);
     
-    // Verify the vault still exists and has reduced balance
     const vaultState = await program.account.vaultState.fetch(vaultStatePda);
     assert.ok(vaultState.owner.equals(owner.publicKey));
     

@@ -9,7 +9,7 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
 
-    /// CHECK: Beneficiary is only used to store the public key for future withdrawals
+    /// CHECK: Stored as a raw pubkey on vault state; signature checks happen on withdraw.
     pub beneficiary: AccountInfo<'info>,
 
     pub mint: Account<'info, Mint>,

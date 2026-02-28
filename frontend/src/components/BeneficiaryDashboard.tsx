@@ -29,7 +29,7 @@ export default function BeneficiaryDashboard({ beneficiaryPublicKey }: Beneficia
     setError(null);
     try {
       const program = getProgramFn();
-      // Memory offset: 8 bytes for discriminator + 32 bytes for owner pubkey = 40
+      // beneficiary offset = 8-byte discriminator + 32-byte owner field
       const vaultsFound = await program.account.vaultState.all([
         { memcmp: { offset: 40, bytes: beneficiaryPublicKey.toBase58() } }
       ]);
