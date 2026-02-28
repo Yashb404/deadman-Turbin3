@@ -151,42 +151,17 @@ Run frontend:
 yarn dev
 ```
 
-## Screenshot Placeholders
+## Website Screenshot
 
-### Landing Page
+<img width="1855" height="937" alt="Screenshot 2026-03-01 021723" src="https://github.com/user-attachments/assets/91278e48-dd83-41f8-9e36-8a48893f9cbc" />
 
-[Insert screenshot here]
+<img width="1857" height="933" alt="image" src="https://github.com/user-attachments/assets/0e034dbf-4839-47ba-84c1-6f18a0095d5f" />
 
+<img width="1306" height="487" alt="image" src="https://github.com/user-attachments/assets/c3489402-774f-458c-bb73-d994c1ba6ef6" />
 
-
-### Owner Dashboard
-
-[Insert screenshot here]
-
-
-
-### Vault Initialization Form
-
-[Insert screenshot here]
-
-
-
-### Vault Management Actions
-
-[Insert screenshot here]
-
-
-
-### Beneficiary Dashboard
-
-[Insert screenshot here]
-
-
-
-### Successful Withdrawal on Devnet
-
-[Insert screenshot here]
-
+## Tests 
+<img width="873" height="898" alt="Screenshot 2026-03-01 015126" src="https://github.com/user-attachments/assets/afca8872-de8c-49be-9d25-08ed6d7d3c88" />
+<img width="1064" height="962" alt="Screenshot 2026-03-01 015108" src="https://github.com/user-attachments/assets/da390609-dc30-420c-82e8-877e6972066d" />
 
 
 ## Troubleshooting
@@ -207,12 +182,6 @@ Check:
 - `NEXT_PUBLIC_SOLANA_RPC_URL` points to devnet
 - `NEXT_PUBLIC_DEADMAN_PROGRAM_ID` matches deployed program
 
-### AccountNotInitialized Errors
-
-Confirm frontend/test PDA derivation includes mint:
-
-- `vault`: `[b"vault", owner, mint]`
-- `token_vault`: `[b"token_vault", owner, mint]`
 
 ## Notes
 
