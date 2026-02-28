@@ -5,6 +5,7 @@ import { useConnection } from '@solana/wallet-adapter-react';
 import { useAnchorProgram, useVaultData, useTransaction } from '@/hooks/useAnchor';
 import { useState, useEffect } from 'react';
 import { initializeVault } from '@/utils/anchor';
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import VaultManagement from './VaultManagement';
 
 interface OwnerDashboardProps {
@@ -43,7 +44,7 @@ export default function OwnerDashboard({ ownerPublicKey }: OwnerDashboardProps) 
     try {
       const parsedTokenAccounts = await connection.getParsedTokenAccountsByOwner(
         ownerPublicKey,
-        { programId: new PublicKey('TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen') }
+        { programId: TOKEN_PROGRAM_ID }
       );
       
       const tokens = parsedTokenAccounts.value.map(tokenAccountInfo => {
@@ -95,10 +96,7 @@ export default function OwnerDashboard({ ownerPublicKey }: OwnerDashboardProps) 
       const interval = Math.floor(Number(formData.interval) || 86400); 
       const gracePeriod = Math.floor(Number(formData.gracePeriod) || 3600); 
 
-      const [ata] = await PublicKey.findProgramAddress(
-        [ownerPublicKey.toBuffer(), new PublicKey('TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen').toBuffer(), mintPubkey.toBuffer()],
-        new PublicKey('ATokenGPvbdGVqstVQmcLsNZAqeEjlmGnKPH5LedwigJZ')
-      );
+      const ata = getAssociatedTokenAddressSync(mintPubkey, ownerPublicKey);
 
       const tx = await initializeVault(
         program,

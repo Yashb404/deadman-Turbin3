@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, CloseAccount, Token, TokenAccount, Transfer};
 
 use crate::errors::ErrorCode;
@@ -13,19 +13,23 @@ pub struct Withdraw<'info> {
         mut,
         has_one = beneficiary,
         close = beneficiary,
-        seeds = [b"vault", vault_state.owner.as_ref()],
+        seeds = [b"vault", vault_state.owner.as_ref(), vault_state.mint.as_ref()],
         bump = vault_state.bump
     )]
     pub vault_state: Account<'info, VaultState>,
 
     #[account(
         mut,
-        seeds = [b"token_vault", vault_state.owner.as_ref()],
+        seeds = [b"token_vault", vault_state.owner.as_ref(), vault_state.mint.as_ref()],
         bump
     )]
     pub vault_token_account: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = beneficiary_token_account.mint == vault_state.mint,
+        constraint = beneficiary_token_account.owner == beneficiary.key()
+    )]
     pub beneficiary_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
@@ -34,17 +38,25 @@ pub struct Withdraw<'info> {
 pub fn handler(ctx: Context<Withdraw>) -> Result<()> {
     let vault_state = &mut ctx.accounts.vault_state;
     let clock = Clock::get()?;
+    let unlock_time = vault_state
+        .last_ping_time
+        .checked_add(vault_state.interval)
+        .ok_or(ErrorCode::ArithmeticOverflow)?
+        .checked_add(vault_state.grace_period)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
 
     require!(
-        clock.unix_timestamp > vault_state.last_ping_time + vault_state.interval + vault_state.grace_period,
+        clock.unix_timestamp > unlock_time,
         ErrorCode::VaultStillActive
     );
 
     let amount = ctx.accounts.vault_token_account.amount;
 
     let owner_key = vault_state.owner;
+    let mint_key = vault_state.mint;
     let bump = vault_state.bump;
-    let signer_seeds: &[&[&[u8]]] = &[&[b"vault", owner_key.as_ref(), &[bump]]];
+    let signer_seeds: &[&[&[u8]]] =
+        &[&[b"vault", owner_key.as_ref(), mint_key.as_ref(), &[bump]]];
 
     let transfer_accounts = Transfer {
         from: ctx.accounts.vault_token_account.to_account_info(),

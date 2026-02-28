@@ -10,17 +10,21 @@ pub struct Deposit<'info> {
 
     #[account(
         has_one = owner,
-        seeds = [b"vault", owner.key().as_ref()],
+        seeds = [b"vault", owner.key().as_ref(), vault_state.mint.as_ref()],
         bump = vault_state.bump
     )]
     pub vault_state: Account<'info, VaultState>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = owner_token_account.mint == vault_state.mint,
+        constraint = owner_token_account.owner == owner.key()
+    )]
     pub owner_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        seeds = [b"token_vault", owner.key().as_ref()],
+        seeds = [b"token_vault", owner.key().as_ref(), vault_state.mint.as_ref()],
         bump
     )]
     pub vault_token_account: Account<'info, TokenAccount>,

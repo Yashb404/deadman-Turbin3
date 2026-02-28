@@ -12,19 +12,23 @@ pub struct CancelVault<'info> {
         mut,
         has_one = owner,
         close = owner,
-        seeds = [b"vault", owner.key().as_ref()],
+        seeds = [b"vault", owner.key().as_ref(), vault_state.mint.as_ref()],
         bump = vault_state.bump
     )]
     pub vault_state: Account<'info, VaultState>,
 
     #[account(
         mut,
-        seeds = [b"token_vault", owner.key().as_ref()],
+        seeds = [b"token_vault", owner.key().as_ref(), vault_state.mint.as_ref()],
         bump
     )]
     pub vault_token_account: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = owner_token_account.mint == vault_state.mint,
+        constraint = owner_token_account.owner == owner.key()
+    )]
     pub owner_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
@@ -35,8 +39,10 @@ pub fn handler(ctx: Context<CancelVault>) -> Result<()> {
     let amount = ctx.accounts.vault_token_account.amount;
 
     let owner_key = vault_state.owner;
+    let mint_key = vault_state.mint;
     let bump = vault_state.bump;
-    let signer_seeds: &[&[&[u8]]] = &[&[b"vault", owner_key.as_ref(), &[bump]]];
+    let signer_seeds: &[&[&[u8]]] =
+        &[&[b"vault", owner_key.as_ref(), mint_key.as_ref(), &[bump]]];
 
     let transfer_accounts = Transfer {
         from: ctx.accounts.vault_token_account.to_account_info(),

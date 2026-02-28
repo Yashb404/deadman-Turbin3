@@ -24,20 +24,12 @@ describe("deadman", () => {
   let mint: anchor.web3.PublicKey;
   let ownerAta: anchor.web3.PublicKey;
   let beneficiaryAta: anchor.web3.PublicKey;
+  let vaultStatePda: anchor.web3.PublicKey;
+  let vaultTokenAccountPda: anchor.web3.PublicKey;
 
   const INTERVAL = new anchor.BN(2);
   const GRACE_PERIOD = new anchor.BN(1);
   const DEPOSIT_AMOUNT = new anchor.BN(5000);
-
-  const [vaultStatePda] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from("vault"), owner.publicKey.toBuffer()],
-    program.programId
-  );
-
-  const [vaultTokenAccountPda] = anchor.web3.PublicKey.findProgramAddressSync(
-    [Buffer.from("token_vault"), owner.publicKey.toBuffer()],
-    program.programId
-  );
 
   it("Airdrops SOL and sets up SPL Token architecture", async () => {
     const airdropSig = await provider.connection.requestAirdrop(
@@ -64,6 +56,14 @@ describe("deadman", () => {
     mint = await createMint(provider.connection, owner, owner.publicKey, null, 6);
     ownerAta = await createAssociatedTokenAccount(provider.connection, owner, mint, owner.publicKey);
     beneficiaryAta = await createAssociatedTokenAccount(provider.connection, beneficiary, mint, beneficiary.publicKey);
+    [vaultStatePda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), owner.publicKey.toBuffer(), mint.toBuffer()],
+      program.programId
+    );
+    [vaultTokenAccountPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("token_vault"), owner.publicKey.toBuffer(), mint.toBuffer()],
+      program.programId
+    );
 
     await mintTo(provider.connection, owner, mint, ownerAta, owner, 10000);
 

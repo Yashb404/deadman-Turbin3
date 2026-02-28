@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { useAnchorProgram, useTransaction } from '@/hooks/useAnchor';
 import { claimInheritance, VaultState } from '@/utils/anchor';
 
@@ -50,10 +51,7 @@ export default function BeneficiaryDashboard({ beneficiaryPublicKey }: Beneficia
     try {
       const program = getProgramFn();
       
-      const [ata] = await PublicKey.findProgramAddress(
-        [beneficiaryPublicKey.toBuffer(), new PublicKey('TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen').toBuffer(), vault.account.mint.toBuffer()],
-        new PublicKey('ATokenGPvbdGVqstVQmcLsNZAqeEjlmGnKPH5LedwigJZ')
-      );
+      const ata = getAssociatedTokenAddressSync(vault.account.mint, beneficiaryPublicKey);
 
       const tx = await claimInheritance(
         program,
@@ -61,6 +59,7 @@ export default function BeneficiaryDashboard({ beneficiaryPublicKey }: Beneficia
         ata,
         vault.publicKey,
         vault.account.owner,
+        vault.account.mint,
         sendTransaction
       );
       

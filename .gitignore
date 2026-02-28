@@ -7,3 +7,5 @@ test-ledger
 .yarn
 .next
 /runbooks
+.env
+.env.local

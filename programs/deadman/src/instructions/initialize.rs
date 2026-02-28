@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-use crate::state::VaultState;
+use crate::errors::ErrorCode;
+use crate::state::{VaultState, MAX_GRACE_PERIOD_SECONDS, MAX_INTERVAL_SECONDS};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -25,7 +26,7 @@ pub struct Initialize<'info> {
         payer = owner,
         token::mint = mint,
         token::authority = vault_state,
-        seeds = [b"token_vault", owner.key().as_ref()],
+        seeds = [b"token_vault", owner.key().as_ref(), mint.key().as_ref()],
         bump
     )]
     pub vault_token_account: Account<'info, TokenAccount>,
@@ -34,7 +35,7 @@ pub struct Initialize<'info> {
         init,
         payer = owner,
         space = 8 + 32 + 32 + 32 + 8 + 8 + 8 + 1,
-        seeds = [b"vault", owner.key().as_ref()],
+        seeds = [b"vault", owner.key().as_ref(), mint.key().as_ref()],
         bump
     )]
     pub vault_state: Account<'info, VaultState>,
@@ -50,6 +51,18 @@ pub fn handler(
     grace_period: i64,
     deposit_amount: u64,
 ) -> Result<()> {
+    require!(interval > 0, ErrorCode::InvalidInterval);
+    require!(interval <= MAX_INTERVAL_SECONDS, ErrorCode::IntervalTooLarge);
+    require!(grace_period > 0, ErrorCode::InvalidGracePeriod);
+    require!(
+        grace_period <= MAX_GRACE_PERIOD_SECONDS,
+        ErrorCode::GracePeriodTooLarge
+    );
+    require!(
+        ctx.accounts.beneficiary.key() != Pubkey::default(),
+        ErrorCode::InvalidBeneficiary
+    );
+
     let vault_state = &mut ctx.accounts.vault_state;
     let clock = Clock::get()?;
 

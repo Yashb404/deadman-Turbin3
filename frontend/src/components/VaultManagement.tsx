@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { 
   pingVault, 
   depositTokens, 
@@ -57,15 +58,11 @@ export default function VaultManagement({ vault, ownerPublicKey, onRefresh }: Va
   };
 
   const getAta = async (mint: PublicKey, owner: PublicKey) => {
-    const [ata] = await PublicKey.findProgramAddress(
-      [owner.toBuffer(), new PublicKey('TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen').toBuffer(), mint.toBuffer()],
-      new PublicKey('ATokenGPvbdGVqstVQmcLsNZAqeEjlmGnKPH5LedwigJZ')
-    );
-    return ata;
+    return getAssociatedTokenAddressSync(mint, owner);
   };
 
   const handlePing = () => executeAction(
-    () => pingVault(getProgramFn(), ownerPublicKey, sendTransaction), 
+    () => pingVault(getProgramFn(), ownerPublicKey, vault.mint, sendTransaction), 
     'Vault pinged successfully'
   );
 
@@ -73,7 +70,7 @@ export default function VaultManagement({ vault, ownerPublicKey, onRefresh }: Va
     if (!depositAmount) return;
     const ata = await getAta(vault.mint, ownerPublicKey);
     executeAction(
-      () => depositTokens(getProgramFn(), ownerPublicKey, ata, Number(depositAmount), sendTransaction),
+      () => depositTokens(getProgramFn(), ownerPublicKey, vault.mint, ata, Number(depositAmount), sendTransaction),
       'Deposit successful'
     );
     setDepositAmount('');
@@ -83,7 +80,7 @@ export default function VaultManagement({ vault, ownerPublicKey, onRefresh }: Va
     if (!withdrawAmount) return;
     const ata = await getAta(vault.mint, ownerPublicKey);
     executeAction(
-      () => ownerWithdraw(getProgramFn(), ownerPublicKey, ata, Number(withdrawAmount), sendTransaction),
+      () => ownerWithdraw(getProgramFn(), ownerPublicKey, vault.mint, ata, Number(withdrawAmount), sendTransaction),
       'Withdrawal successful'
     );
     setWithdrawAmount('');
@@ -92,7 +89,7 @@ export default function VaultManagement({ vault, ownerPublicKey, onRefresh }: Va
   const handleUpdateInterval = () => {
     if (!newInterval) return;
     executeAction(
-      () => updateInterval(getProgramFn(), ownerPublicKey, Number(newInterval), sendTransaction),
+      () => updateInterval(getProgramFn(), ownerPublicKey, vault.mint, Number(newInterval), sendTransaction),
       'Interval updated'
     );
     setNewInterval('');
@@ -101,7 +98,7 @@ export default function VaultManagement({ vault, ownerPublicKey, onRefresh }: Va
   const handleUpdateBeneficiary = () => {
     if (!newBeneficiary) return;
     executeAction(
-      () => updateBeneficiary(getProgramFn(), ownerPublicKey, new PublicKey(newBeneficiary), sendTransaction),
+      () => updateBeneficiary(getProgramFn(), ownerPublicKey, vault.mint, new PublicKey(newBeneficiary), sendTransaction),
       'Beneficiary updated'
     );
     setNewBeneficiary('');
@@ -111,7 +108,7 @@ export default function VaultManagement({ vault, ownerPublicKey, onRefresh }: Va
     if (!window.confirm("WARNING: This will permanently close the vault and return all tokens. Proceed?")) return;
     const ata = await getAta(vault.mint, ownerPublicKey);
     executeAction(
-      () => cancelVault(getProgramFn(), ownerPublicKey, ata, sendTransaction),
+      () => cancelVault(getProgramFn(), ownerPublicKey, vault.mint, ata, sendTransaction),
       'Vault cancelled and memory swept'
     );
   };

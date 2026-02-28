@@ -1,24 +1,27 @@
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { IDL } from "./deadman-idl";
 
-const PROGRAM_ID = new PublicKey("CMDpyVccyoGAYbWApqoHJizCUM6vYFTbQJ9WpdNQfygA");
+const PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_DEADMAN_PROGRAM_ID ?? "CMDpyVccyoGAYbWApqoHJizCUM6vYFTbQJ9WpdNQfygA"
+);
 
 export const getProgram = (provider: anchor.AnchorProvider) => {
-  return new anchor.Program(IDL as anchor.Idl, PROGRAM_ID, provider);
+  return new anchor.Program(IDL as unknown as anchor.Idl, PROGRAM_ID, provider);
 };
 
-export const getVaultPDA = (ownerPubkey: PublicKey) => {
+export const getVaultPDA = (ownerPubkey: PublicKey, mintPubkey: PublicKey) => {
   const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
-    [Buffer.from("vault"), ownerPubkey.toBuffer()],
+    [Buffer.from("vault"), ownerPubkey.toBuffer(), mintPubkey.toBuffer()],
     PROGRAM_ID
   );
   return { vaultPda, vaultBump };
 };
 
-export const getVaultTokenPDA = (ownerPubkey: PublicKey) => {
+export const getVaultTokenPDA = (ownerPubkey: PublicKey, mintPubkey: PublicKey) => {
   const [tokenVaultPda, tokenVaultBump] = PublicKey.findProgramAddressSync(
-    [Buffer.from("token_vault"), ownerPubkey.toBuffer()],
+    [Buffer.from("token_vault"), ownerPubkey.toBuffer(), mintPubkey.toBuffer()],
     PROGRAM_ID
   );
   return { tokenVaultPda, tokenVaultBump };
@@ -40,7 +43,7 @@ export const fetchVaultState = async (
 ): Promise<VaultState | null> => {
   try {
     const vault = await program.account.vaultState.fetch(vaultPda);
-    return vault as VaultState;
+    return vault as unknown as VaultState;
   } catch (error) {
     console.error("Error fetching vault state:", error);
     return null;
@@ -58,8 +61,8 @@ export const initializeVault = async (
   depositAmount: number,
   sendTransaction: (tx: anchor.web3.Transaction, signers?: anchor.web3.Signer[]) => Promise<string>
 ) => {
-  const { vaultPda } = getVaultPDA(owner);
-  const { tokenVaultPda } = getVaultTokenPDA(owner);
+  const { vaultPda } = getVaultPDA(owner, mint);
+  const { tokenVaultPda } = getVaultTokenPDA(owner, mint);
 
   const tx = await program.methods
     .initialize(
@@ -74,7 +77,7 @@ export const initializeVault = async (
       ownerTokenAccount,
       vaultTokenAccount: tokenVaultPda,
       vaultState: vaultPda,
-      tokenProgram: new PublicKey("TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen"),
+      tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: anchor.web3.SystemProgram.programId,
       rent: anchor.web3.SYSVAR_RENT_PUBKEY,
     })
@@ -86,9 +89,10 @@ export const initializeVault = async (
 export const pingVault = async (
   program: anchor.Program,
   owner: PublicKey,
+  mint: PublicKey,
   sendTransaction: (tx: anchor.web3.Transaction) => Promise<string>
 ) => {
-  const { vaultPda } = getVaultPDA(owner);
+  const { vaultPda } = getVaultPDA(owner, mint);
 
   const tx = await program.methods
     .ping()
@@ -104,10 +108,11 @@ export const pingVault = async (
 export const updateInterval = async (
   program: anchor.Program,
   owner: PublicKey,
+  mint: PublicKey,
   newInterval: number,
   sendTransaction: (tx: anchor.web3.Transaction) => Promise<string>
 ) => {
-  const { vaultPda } = getVaultPDA(owner);
+  const { vaultPda } = getVaultPDA(owner, mint);
 
   const tx = await program.methods
     .updateInterval(new anchor.BN(newInterval))
@@ -123,10 +128,11 @@ export const updateInterval = async (
 export const updateBeneficiary = async (
   program: anchor.Program,
   owner: PublicKey,
+  mint: PublicKey,
   newBeneficiary: PublicKey,
   sendTransaction: (tx: anchor.web3.Transaction) => Promise<string>
 ) => {
-  const { vaultPda } = getVaultPDA(owner);
+  const { vaultPda } = getVaultPDA(owner, mint);
 
   const tx = await program.methods
     .updateBeneficiary(newBeneficiary)
@@ -142,12 +148,13 @@ export const updateBeneficiary = async (
 export const depositTokens = async (
   program: anchor.Program,
   owner: PublicKey,
+  mint: PublicKey,
   ownerTokenAccount: PublicKey,
   amount: number,
   sendTransaction: (tx: anchor.web3.Transaction) => Promise<string>
 ) => {
-  const { vaultPda } = getVaultPDA(owner);
-  const { tokenVaultPda } = getVaultTokenPDA(owner);
+  const { vaultPda } = getVaultPDA(owner, mint);
+  const { tokenVaultPda } = getVaultTokenPDA(owner, mint);
 
   const tx = await program.methods
     .deposit(new anchor.BN(amount))
@@ -156,7 +163,7 @@ export const depositTokens = async (
       vaultState: vaultPda,
       ownerTokenAccount,
       vaultTokenAccount: tokenVaultPda,
-      tokenProgram: new PublicKey("TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen"),
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
     .transaction();
 
@@ -166,12 +173,13 @@ export const depositTokens = async (
 export const ownerWithdraw = async (
   program: anchor.Program,
   owner: PublicKey,
+  mint: PublicKey,
   ownerTokenAccount: PublicKey,
   amount: number,
   sendTransaction: (tx: anchor.web3.Transaction) => Promise<string>
 ) => {
-  const { vaultPda } = getVaultPDA(owner);
-  const { tokenVaultPda } = getVaultTokenPDA(owner);
+  const { vaultPda } = getVaultPDA(owner, mint);
+  const { tokenVaultPda } = getVaultTokenPDA(owner, mint);
 
   const tx = await program.methods
     .ownerWithdraw(new anchor.BN(amount))
@@ -180,7 +188,7 @@ export const ownerWithdraw = async (
       vaultState: vaultPda,
       vaultTokenAccount: tokenVaultPda,
       ownerTokenAccount,
-      tokenProgram: new PublicKey("TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen"),
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
     .transaction();
 
@@ -193,9 +201,10 @@ export const claimInheritance = async (
   beneficiaryTokenAccount: PublicKey,
   vaultPda: PublicKey,
   ownerPubkey: PublicKey,
+  mintPubkey: PublicKey,
   sendTransaction: (tx: anchor.web3.Transaction) => Promise<string>
 ) => {
-  const { tokenVaultPda } = getVaultTokenPDA(ownerPubkey);
+  const { tokenVaultPda } = getVaultTokenPDA(ownerPubkey, mintPubkey);
 
   const tx = await program.methods
     .withdraw()
@@ -204,7 +213,7 @@ export const claimInheritance = async (
       vaultState: vaultPda,
       vaultTokenAccount: tokenVaultPda,
       beneficiaryTokenAccount,
-      tokenProgram: new PublicKey("TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen"),
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
     .transaction();
 
@@ -214,11 +223,12 @@ export const claimInheritance = async (
 export const cancelVault = async (
   program: anchor.Program,
   owner: PublicKey,
+  mint: PublicKey,
   ownerTokenAccount: PublicKey,
   sendTransaction: (tx: anchor.web3.Transaction) => Promise<string>
 ) => {
-  const { vaultPda } = getVaultPDA(owner);
-  const { tokenVaultPda } = getVaultTokenPDA(owner);
+  const { vaultPda } = getVaultPDA(owner, mint);
+  const { tokenVaultPda } = getVaultTokenPDA(owner, mint);
 
   const tx = await program.methods
     .cancelVault()
@@ -227,7 +237,7 @@ export const cancelVault = async (
       vaultState: vaultPda,
       vaultTokenAccount: tokenVaultPda,
       ownerTokenAccount,
-      tokenProgram: new PublicKey("TokenkegQfeZyiNwAJsyFbPVwwQQfg5bgDLvotemen"),
+      tokenProgram: TOKEN_PROGRAM_ID,
     })
     .transaction();
 

@@ -6,9 +6,6 @@ import { useCallback, useState } from 'react';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import {
   getProgram,
-  getVaultPDA,
-  getVaultTokenPDA,
-  fetchVaultState,
   VaultState,
 } from '@/utils/anchor';
 
@@ -45,11 +42,14 @@ export const useVaultData = (owner: PublicKey | null) => {
     
     try {
       const program = getProgramFn();
-      const { vaultPda } = getVaultPDA(owner);
-      const vaultData = await fetchVaultState(program, vaultPda);
-      
-      if (vaultData) {
-        setVault(vaultData);
+      // Vaults are keyed by owner + mint, so query by owner and show the first result.
+      const ownerVaults = await program.account.vaultState.all([
+        { memcmp: { offset: 8, bytes: owner.toBase58() } },
+      ]);
+
+      if (ownerVaults.length > 0) {
+        const firstVault = ownerVaults[0].account as unknown as VaultState;
+        setVault(firstVault);
       } else {
         setVault(null);
       }

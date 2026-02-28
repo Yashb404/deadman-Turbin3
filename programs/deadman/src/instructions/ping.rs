@@ -10,7 +10,7 @@ pub struct Ping<'info> {
     #[account(
         mut,
         has_one = owner,
-        seeds = [b"vault", owner.key().as_ref()],
+        seeds = [b"vault", owner.key().as_ref(), vault_state.mint.as_ref()],
         bump = vault_state.bump
     )]
     pub vault_state: Account<'info, VaultState>,
