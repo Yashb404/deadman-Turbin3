@@ -19,7 +19,7 @@ describe("deadman", () => {
 
   const program = anchor.workspace.Deadman as Program<Deadman>;
 
-  const owner = anchor.web3.Keypair.generate();
+  const owner = (provider.wallet as anchor.Wallet).payer; //i am using the local pubkey instead of generating a new one every time.
   const beneficiary = anchor.web3.Keypair.generate();
   const ownerTwo = anchor.web3.Keypair.generate();
   const beneficiaryTwo = anchor.web3.Keypair.generate();
@@ -43,39 +43,36 @@ describe("deadman", () => {
   const GRACE_PERIOD = new anchor.BN(1);
   const DEPOSIT_AMOUNT = new anchor.BN(5000);
 
-  it("Airdrops SOL and sets up SPL Token architecture", async () => {
-    const airdropSig = await provider.connection.requestAirdrop(
-      owner.publicKey,
-      10 * anchor.web3.LAMPORTS_PER_SOL
+  it("Funds accounts and sets up SPL Token architecture", async () => {
+    // Transfer 0.5 SOL directly from the owner to the beneficiary to cover their gas fees
+    const transferTx = new anchor.web3.Transaction().add(
+      anchor.web3.SystemProgram.transfer({
+        fromPubkey: owner.publicKey,
+        toPubkey: beneficiary.publicKey,
+        lamports: 0.5 * anchor.web3.LAMPORTS_PER_SOL,
+      })
     );
-    const airdropBen = await provider.connection.requestAirdrop(
-      beneficiary.publicKey,
-      2 * anchor.web3.LAMPORTS_PER_SOL
+    
+    await anchor.web3.sendAndConfirmTransaction(
+      provider.connection,
+      transferTx,
+      [owner]
     );
-
-    const latestBlockHash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: airdropSig,
-    });
-    await provider.connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: airdropBen,
-    });
 
     mint = await createMint(provider.connection, owner, owner.publicKey, null, 6);
-    ownerAta = await createAssociatedTokenAccount(provider.connection, owner, mint, owner.publicKey);
-    beneficiaryAta = await createAssociatedTokenAccount(provider.connection, beneficiary, mint, beneficiary.publicKey);
+    
     [vaultStatePda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("vault"), owner.publicKey.toBuffer(), mint.toBuffer()],
       program.programId
     );
+
     [vaultTokenAccountPda] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("token_vault"), owner.publicKey.toBuffer(), mint.toBuffer()],
       program.programId
     );
+
+    ownerAta = await createAssociatedTokenAccount(provider.connection, owner, mint, owner.publicKey);
+    beneficiaryAta = await createAssociatedTokenAccount(provider.connection, beneficiary, mint, beneficiary.publicKey);
 
     await mintTo(provider.connection, owner, mint, ownerAta, owner, 10000);
 
@@ -363,35 +360,30 @@ describe("deadman", () => {
   });
 
   it("Sets up secondary actors and token accounts for constraint tests", async () => {
-    const airdropOwnerTwo = await provider.connection.requestAirdrop(
-      ownerTwo.publicKey,
-      10 * anchor.web3.LAMPORTS_PER_SOL
-    );
-    const airdropBeneficiaryTwo = await provider.connection.requestAirdrop(
-      beneficiaryTwo.publicKey,
-      2 * anchor.web3.LAMPORTS_PER_SOL
-    );
-    const airdropOutsider = await provider.connection.requestAirdrop(
-      outsider.publicKey,
-      2 * anchor.web3.LAMPORTS_PER_SOL
+    // transfer SOL from main CLI wallet to fund the secondary test wallets
+    const fundSecondaryTx = new anchor.web3.Transaction().add(
+      anchor.web3.SystemProgram.transfer({
+        fromPubkey: owner.publicKey,
+        toPubkey: ownerTwo.publicKey,
+        lamports: 0.5 * anchor.web3.LAMPORTS_PER_SOL,
+      }),
+      anchor.web3.SystemProgram.transfer({
+        fromPubkey: owner.publicKey,
+        toPubkey: beneficiaryTwo.publicKey,
+        lamports: 0.5 * anchor.web3.LAMPORTS_PER_SOL,
+      }),
+      anchor.web3.SystemProgram.transfer({
+        fromPubkey: owner.publicKey,
+        toPubkey: outsider.publicKey,
+        lamports: 0.5 * anchor.web3.LAMPORTS_PER_SOL,
+      })
     );
 
-    const latestBlockHash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: airdropOwnerTwo,
-    });
-    await provider.connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: airdropBeneficiaryTwo,
-    });
-    await provider.connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: airdropOutsider,
-    });
+    await anchor.web3.sendAndConfirmTransaction(
+      provider.connection,
+      fundSecondaryTx,
+      [owner] 
+    );
 
     mintTwo = await createMint(
       provider.connection,
